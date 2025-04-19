@@ -10,6 +10,7 @@ find_package(ALSA REQUIRED)
 include_directories(include ${ALSA_INCLUDE_DIRS})
 
 # Add subdirectories for your modules
+add_subdirectory(lib/DataStructures)
 add_subdirectory(lib/AudioOutput)
 add_subdirectory(lib/AudioCapture)
 add_subdirectory(lib/Filters)

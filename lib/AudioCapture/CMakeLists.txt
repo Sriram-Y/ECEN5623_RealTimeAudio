@@ -5,3 +5,6 @@ add_library(AudioCapture
 target_include_directories(AudioCapture PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+target_link_libraries(AudioCapture PUBLIC DataStructures)
+
