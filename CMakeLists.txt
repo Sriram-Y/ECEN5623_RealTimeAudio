@@ -20,7 +20,7 @@ add_subdirectory(lib/AudioCapture)
 add_subdirectory(lib/Filters)
 
 # Define the executable (use C++ source files)
-add_executable(realtimeaudio src/main.cpp)
+add_executable(realtimeaudio src/main.cpp src/Sequencer.cpp)
 
 # Link your internal libraries and ALSA
 target_link_libraries(realtimeaudio PRIVATE AudioOutput AudioCapture Filters ${ALSA_LIBRARIES})
