@@ -6,7 +6,7 @@
 #include <alsa/asoundlib.h>
 #include <syslog.h>
 
-#include <DataStructures/DataStructures.h>
+#include <DataStructures/DataStructures.hpp>
 
 // TODO (SY): Hardcoded for now, probably should have something to search for a device (card#, device#)
 #define PCM_DEVICE "hw:1,0"

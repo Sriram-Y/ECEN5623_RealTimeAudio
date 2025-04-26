@@ -9,7 +9,7 @@
 #include <alsa/asoundlib.h>
 #include <syslog.h>
 
-#include <DataStructures/DataStructures.h>
+#include <DataStructures/DataStructures.hpp>
 
 void playback_audio(AudioData audio, int rate, int channels);
 

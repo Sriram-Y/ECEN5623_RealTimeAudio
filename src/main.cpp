@@ -1,7 +1,8 @@
 #include <stdio.h>
-#include "AudioOutput.h"
-#include "AudioCapture.h"
-#include "Filters.h"
+#include "AudioOutput.hpp"
+#include "AudioCapture.hpp"
+#include "Filters.hpp"
+#include "Sequencer.hpp"
 
 int main()
 {

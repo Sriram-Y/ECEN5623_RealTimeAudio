@@ -1,4 +1,4 @@
-#include "AudioCapture.h"
+#include "AudioCapture.hpp"
 
 int setup_capture(AudioCapture *cap, int rate, int channels)
 {

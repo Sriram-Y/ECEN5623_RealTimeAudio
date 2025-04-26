@@ -1,5 +1,5 @@
 add_library(AudioOutput
-    src/AudioOutput.c
+    src/AudioOutput.cpp
 )
 
 target_include_directories(AudioOutput PUBLIC

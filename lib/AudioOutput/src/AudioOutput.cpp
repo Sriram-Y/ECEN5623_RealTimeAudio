@@ -1,4 +1,4 @@
-#include "AudioOutput.h"
+#include "AudioOutput.hpp"
 
 void playback_audio(AudioData audio, int rate, int channels)
 {
