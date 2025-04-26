@@ -188,35 +188,3 @@ void service2(){
     std::puts("this is service 2 implemented as a function 22222222222222222\n");
 }
 
-int main(){
-
-    struct sigaction sa;
-    sa.sa_handler = handle_sigint;
-    sa.sa_flags = 0; // No special flags
-    sigemptyset(&sa.sa_mask); // No blocked signals
-
-    // Example use of the sequencer/service classes:
-    sequencer.addService([]() {
-        std::puts("this is service 1 implemented in a lambda expression\n");
-    }, 1, 99, 5000);
-    
-    sequencer.addService(service2, 1, 98, 1000);
-    
-    // Register signal handler
-    sigaction(SIGINT, &sa, NULL);
-    sigaction(SIGTERM, &sa, NULL); // Handle termination signal
-    
-    std::cout<<"Services added\n";
-
-    sequencer.startServices();
-    // todo: wait for ctrl-c or some other terminating condition
-    while (exit_flag == 0) {
-        sleep(1); // Sleep to reduce CPU usage
-    }
-
-    while(exit_flag <= 1) {
-        sleep(1); // Sleep to reduce CPU usage
-    }
-    _service.join();  // Wait for the service thread to finish
-    return 0;
-}
