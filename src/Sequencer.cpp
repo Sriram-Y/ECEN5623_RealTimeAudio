@@ -25,7 +25,10 @@
 #include "Sequencer.hpp"
 #include <atomic>
 
+int exit_flag = 0;
 int _running = 1;  // Global variable to control service execution
+extern Sequencer sequencer;
+using namespace std;
 
 
 

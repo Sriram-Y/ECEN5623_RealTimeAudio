@@ -9,8 +9,8 @@ AudioCapture cap;
 const int rate = 44100;
 const int channels = 1;
 const int seconds = 1;
-int exit_flag = 0;
 AudioData cap_data ;
+extern Sequencer sequencer;
 Sequencer sequencer{};
 
 std::jthread _service;  // Global thread for service execution
@@ -50,13 +50,13 @@ int main(){
 
     sequencer.startServices();
     // todo: wait for ctrl-c or some other terminating condition
-    while (exit_flag == 0) {
-        sleep(1); // Sleep to reduce CPU usage
-    }
+    //while (sequencer.exit_flag == 0) {
+    //    sleep(1); // Sleep to reduce CPU usage
+    //}
 
-    while(exit_flag <= 1) {
-        sleep(1); // Sleep to reduce CPU usage
-    }
+    //while(sequencer.exit_flag <= 1) {
+    //    sleep(1); // Sleep to reduce CPU usage
+    //}
     _service.join();  // Wait for the service thread to finish
     free(cap_data.data);
     return 0;
