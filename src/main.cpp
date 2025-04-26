@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <signal.h>
 #include "AudioOutput.hpp"
 #include "AudioCapture.hpp"
 #include "Filters.hpp"
@@ -8,7 +9,11 @@ AudioCapture cap;
 const int rate = 44100;
 const int channels = 1;
 const int seconds = 1;
+int exit_flag = 0;
 AudioData cap_data ;
+Sequencer sequencer{};
+
+std::jthread _service;  // Global thread for service execution
 
 void serviceCapture(){
     cap_data = start_capture(&cap, seconds);

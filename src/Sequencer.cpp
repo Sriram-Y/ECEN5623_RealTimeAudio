@@ -27,10 +27,7 @@
 
 int _running = 1;  // Global variable to control service execution
 
-std::jthread _service;  // Global thread for service execution
 
-Sequencer sequencer{};
-int exit_flag = 0;
 
 // Service method definitions:
 
