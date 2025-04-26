@@ -30,8 +30,10 @@ int main(){
     sa.sa_flags = 0; // No special flags
     sigemptyset(&sa.sa_mask); // No blocked signals
 
+    std::cout<<"Try to setup capture\n";
     if (setup_capture(&cap, rate, channels) != 0)
     {
+        std::cout<<"Failed to setup capture\n";
         return 1;
     }
     // Example use of the sequencer/service classes:
@@ -39,8 +41,9 @@ int main(){
         //std::puts("this is service 1 implemented in a lambda expression\n");
     //}, 1, 99, 5000);
   
-    sequencer.addService(serviceCapture, 1, 98, 5);
-    sequencer.addService(servicePlayback, 1, 99, 5);
+    std::cout<<"Try to add services\n";
+    sequencer.addService(serviceCapture, 1, 1, 5000);
+    sequencer.addService(servicePlayback, 1, 99, 10000);
     
     // Register signal handler
     sigaction(SIGINT, &sa, NULL);
