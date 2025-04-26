@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/realtimeaudio.dir/link.d CMakeFiles/realtimeaudio.dir/main.cpp.o -o realtimeaudio  lib/AudioOutput/libAudioOutput.a lib/AudioCapture/libAudioCapture.a lib/Filters/libFilters.a /usr/lib/libasound.so

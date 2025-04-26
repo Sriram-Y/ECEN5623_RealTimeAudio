@@ -1,0 +1,2 @@
+/usr/bin/ar qc libAudioPlaybackService.a CMakeFiles/AudioPlaybackService.dir/src/AudioPlaybackService.cpp.o
+/usr/bin/ranlib libAudioPlaybackService.a

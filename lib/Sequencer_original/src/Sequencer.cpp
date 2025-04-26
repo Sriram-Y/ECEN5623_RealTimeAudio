@@ -7,8 +7,23 @@
  * Steve Rizor 3/16/2025
  */
 
+#include <cstdint>
+#include <cstdio>
+#include <semaphore.h>
+#include <cstdint>
+#include <functional>
+#include <thread>
+#include <vector>
+#include <iostream>
+#include <sched.h>
+
+#include <signal.h>
+#include <unistd.h>
+#include <cstring>
+#include <chrono>
 
 #include "Sequencer.hpp"
+#include <atomic>
 
 int _running = 1;  // Global variable to control service execution
 
@@ -18,11 +33,6 @@ Sequencer sequencer{};
 int exit_flag = 0;
 
 // Service method definitions:
-Service::Service(uint8_t affinity, uint8_t priority, uint32_t period)
-    : _affinity(affinity), _priority(priority), _period(period) {
-    std::cout << "Service created with affinity: " << (int)_affinity << std::endl;
-}
-
 
 void Service::_initializeService(){
 

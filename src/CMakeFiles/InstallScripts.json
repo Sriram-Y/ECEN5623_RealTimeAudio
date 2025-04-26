@@ -1,0 +1,14 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/amber/school/ecen5623/project/src/cmake_install.cmake",
+		"/home/amber/school/ecen5623/project/src/lib/DataStructures/cmake_install.cmake",
+		"/home/amber/school/ecen5623/project/src/lib/AudioOutput/cmake_install.cmake",
+		"/home/amber/school/ecen5623/project/src/lib/AudioCapture/cmake_install.cmake",
+		"/home/amber/school/ecen5623/project/src/lib/Filters/cmake_install.cmake",
+		"/home/amber/school/ecen5623/project/src/lib/SharedAudioBuffer/cmake_install.cmake",
+		"/home/amber/school/ecen5623/project/src/lib/AudioPlaybackService/cmake_install.cmake",
+		"/home/amber/school/ecen5623/project/src/lib/AudioCaptureService/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

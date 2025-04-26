@@ -1,0 +1,2 @@
+/usr/bin/ar qc libAudioCaptureService.a CMakeFiles/AudioCaptureService.dir/src/AudioCaptureService.cpp.o
+/usr/bin/ranlib libAudioCaptureService.a

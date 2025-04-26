@@ -1,5 +1,12 @@
-#include "AudioCapture.h"
-#include "Sequencer.hpp"
+#include "../lib/AudioCaptureService/include/AudioCaptureService.hpp"
+#include "../lib/AudioCapture/include/AudioCapture.h"
+#include "../lib/SharedAudioBuffer/include/SharedAudioBuffer.hpp"
+#include "../lib/Sequencer/include/Sequencer.hpp"
+
+//AudioCaptureService::AudioCaptureService(int affinity, int priority, int period, AudioCapture* cap, SharedAudioBuffer* shared)
+//    : Service(affinity, priority, period), capture(cap), sharedBuffer(shared)
+//{
+//}
 
 class AudioCaptureService : public Service {
 public:

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libSharedAudioBuffer.a CMakeFiles/SharedAudioBuffer.dir/src/SharedAudioBuffer.cpp.o
+/usr/bin/ranlib libSharedAudioBuffer.a

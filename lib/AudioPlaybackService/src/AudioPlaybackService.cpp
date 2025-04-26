@@ -1,5 +1,6 @@
-#include "AudioOutput.h"
-#include "Sequencer.hpp"
+#include "../lib/AudioOutput/include/AudioOutput.h"
+#include "../lib/SharedAudioBuffer/include/SharedAudioBuffer.hpp"
+#include "../lib/Sequencer/include/Sequencer.hpp"
 
 class AudioPlaybackService : public Service {
 public:

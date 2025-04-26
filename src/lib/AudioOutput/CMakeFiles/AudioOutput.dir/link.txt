@@ -1,0 +1,2 @@
+/usr/bin/ar qc libAudioOutput.a CMakeFiles/AudioOutput.dir/src/AudioOutput.c.o
+/usr/bin/ranlib libAudioOutput.a

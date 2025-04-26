@@ -1,0 +1,2 @@
+/usr/bin/ar qc libAudioCapture.a CMakeFiles/AudioCapture.dir/src/AudioCapture.c.o
+/usr/bin/ranlib libAudioCapture.a
