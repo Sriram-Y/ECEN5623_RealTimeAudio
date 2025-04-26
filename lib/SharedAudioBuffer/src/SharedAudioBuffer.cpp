@@ -1,33 +1,56 @@
-// SharedAudioBuffer.cpp
-#include "SharedAudioBuffer.hpp"
-#include <DataStructures/DataStructures.h>  // Required for AudioData
-#include <cstring>           // Required for memcpy
-#include <mutex>                   // for std::mutex, std::lock_guard
+#include "Sequencer.hpp"
+#include <pthread.h>
+#include <sched.h>
+#include <unistd.h>
 
-void SharedAudioBuffer::write(const AudioData& data) {
-    std::lock_guard<std::mutex> lock(mtx);
-    buffer.assign(data.data, data.data + data.size);
+Service::Service(uint8_t affinity, uint8_t priority, uint32_t period)
+    : _affinity(affinity), _priority(priority), _period(period) {
+    std::cout << "Service created with affinity: " << (int)_affinity << std::endl;
 }
 
-AudioData SharedAudioBuffer::read() {
-    std::lock_guard<std::mutex> lock(mtx);
-
-    AudioData result;
-    result.size = buffer.size();
-    result.offset = 0;
-
-    if (result.size == 0) {
-        result.data = nullptr;
-        return result;
+void Service::_initializeService() {
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(_affinity, &cpuset);
+    if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) != 0) {
+        std::cerr << "Error setting thread affinity" << std::endl;
     }
 
-    result.data = static_cast<char*>(malloc(result.size));
-    if (result.data) {
-        std::memcpy(result.data, buffer.data(), result.size);
-    } else {
-        result.size = 0;
+    struct sched_param sched;
+    sched.sched_priority = _priority;
+    if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sched) != 0) {
+        std::cerr << "Error setting thread priority" << std::endl;
     }
+}
 
-    return result;
+void Service::stop() {
+    _running = false;
+    release();  // Wake up service if waiting
+}
+
+void Service::release() {
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        ready = true;
+    }
+    cv.notify_one();
+}
+
+void Service::_provideService() {
+    _initializeService();
+
+    while (_running) {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [this]() { return ready.load() || !_running; });
+
+        if (!_running) break;
+
+        ready = false;
+        _doService();
+    }
+}
+
+uint32_t Service::get_period() const {
+    return _period;
 }
 

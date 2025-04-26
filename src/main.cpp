@@ -9,6 +9,7 @@
 
 int main() {
     SharedAudioBuffer sharedBuffer;
+    Sequencer sequencer;
 
     sequencer.addService(new AudioCaptureService(1, 99, 100), &sharedBuffer); // Every 100 ms
     sequencer.addService(new AudioPlaybackService(1, 98, 100), &sharedBuffer);
