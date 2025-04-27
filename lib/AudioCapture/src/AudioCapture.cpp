@@ -1,4 +1,6 @@
 #include "AudioCapture.hpp"
+#include <stdio.h>
+#include <iostream>
 
 int setup_capture(AudioCapture *cap, int rate, int channels)
 {
@@ -84,8 +86,12 @@ AudioData start_capture(AudioCapture *cap, int seconds)
 
 void stop_capture(AudioCapture *cap)
 {
+    std::cout<<"A\n";
     snd_pcm_drain(cap->pcm_handle);
+    std::cout<<"B\n";
     snd_pcm_close(cap->pcm_handle);
+    std::cout<<"C\n";
     snd_pcm_hw_params_free(cap->params);
     free(cap->frame_buffer);
 }
+
