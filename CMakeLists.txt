@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Enable strict compiler warnings
-add_compile_options(-Wall -Werror -pedantic)
+add_compile_options(-Wall -Werror -pedantic -pthread)
 
 # Find ALSA
 find_package(ALSA REQUIRED)
