@@ -34,19 +34,6 @@ unsigned int fib10Cnt = 0, fib20Cnt = 0;
         }                                                   \
     } while (0)
 
-void fib10()
-{
-    std::printf("Running fib10... Count: %u\n", fib10Cnt);
-    FIB_TEST(FIB_LIMIT_FOR_32_BIT, 170000);
-    ++fib10Cnt;
-}
-
-void fib20()
-{
-    std::printf("Running fib20... Count: %u\n", fib20Cnt);
-    FIB_TEST(FIB_LIMIT_FOR_32_BIT, 340000);
-    ++fib20Cnt;
-}
 
 void service2()
 {
