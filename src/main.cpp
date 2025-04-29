@@ -9,8 +9,9 @@ AudioCapture cap;
 //const int rate = 44100;
 const int rate = 18100;
 const int channels = 1;
-const int seconds = 1;
+const int seconds = 5;
 AudioData cap_data ;
+AudioData cap_data2 ;
 extern Sequencer sequencer;
 
 std::jthread _service;  // Global thread for service execution
@@ -39,27 +40,37 @@ int main(){
         std::cout<<"Failed to setup capture\n";
         return 1;
     }
+    std::cout<<"Success of setup capture\n";
     // Example use of the sequencer/service classes:
     //sequencer.addService([]() {
         //std::puts("this is service 1 implemented in a lambda expression\n");
     //}, 1, 99, 5000);
     //std::cout<<"First pass recording\n"; 
     //cap_data = start_capture(&cap, seconds);
-    //for(int i = 0; i<5; i++){
-    //  //std::cout<<"Sample a bit\n";
-    //  //serviceCapture();
-    //  std::cout<<"Playback a bit\n";
-    //  playback_audio(cap_data, rate, channels);
-    //  //std::cout<<"Stop Capture\n";
-    //  //stop_capture(&cap);
-    //  //free(cap_data.data);
-    //  //free(cap_data.data);
-    //  //free(cap_data.size);
-    //  //free(cap_data.offset);
-    //}
-    std::cout<<"Try to add services\n";
-    sequencer.addService(serviceCapture, 1, 97, 5000);
-    sequencer.addService(servicePlayback, 1, 96, 1000);
+
+
+    std::cout<<"Test Audio Service\n";
+    for(int i = 0; i<5; i++){
+      std::cout<<"Sample a bit\n";
+      cap_data = start_capture(&cap, seconds);
+      std::cout<<"Playback a bit\n";
+      playback_audio(cap_data, rate, channels);
+      std::cout<<"Sample a bit again\n";
+      cap_data2 = start_capture(&cap, seconds);
+      std::cout<<"Playback a bit\n";
+      playback_audio(cap_data, rate, channels);
+      //std::cout<<"Stop Capture\n";
+      //stop_capture(&cap);
+      //free(cap_data.data);
+      //free(cap_data.data);
+      //free(cap_data.size);
+      //free(cap_data.offset);
+    }
+  
+
+    //std::cout<<"Try to add services\n";
+    //sequencer.addService(serviceCapture, 1, 97, 5000);
+    //sequencer.addService(servicePlayback, 1, 96, 1000);
     
     // Register signal handler
     //sigaction(SIGINT, &sa, NULL);
