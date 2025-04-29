@@ -71,11 +71,6 @@ AudioData start_capture(AudioCapture *cap, int seconds)
         }
     }
 
-    snd_pcm_drain(cap->pcm_handle);
-    snd_pcm_close(cap->pcm_handle);
-    snd_pcm_hw_params_free(cap->params);
-    free(cap->frame_buffer);
-
     // TODO (SY): Could be handled better
     result.data = buffer;
     result.size = total_size;
@@ -87,9 +82,16 @@ AudioData start_capture(AudioCapture *cap, int seconds)
 void stop_capture(AudioCapture *cap)
 {
     std::cout<<"A\n";
-    snd_pcm_drain(cap->pcm_handle);
+
+    if (snd_pcm_drain(cap->pcm_handle) != 0)
+    {
+        std::cout<<"!!! ERROR: Drain failed !!!\n";
+    }
     std::cout<<"B\n";
-    snd_pcm_close(cap->pcm_handle);
+    if (snd_pcm_close(cap->pcm_handle) != 0)
+    {
+        std::cout<<"!!! ERROR: Close failed !!!\n";
+    }
     std::cout<<"C\n";
     snd_pcm_hw_params_free(cap->params);
     free(cap->frame_buffer);
