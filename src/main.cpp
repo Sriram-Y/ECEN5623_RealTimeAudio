@@ -2,6 +2,11 @@
 #include <signal.h>
 #include <syslog.h>
 
+// Keyboard capture
+#include <unistd.h>
+#include <termios.h>
+#include <fcntl.h>
+
 // Student-generated headers
 #include "AudioOutput.hpp"
 #include "AudioCapture.hpp"
@@ -44,7 +49,39 @@ const int seconds = 5;
 int run_once = 0;
 
 std::jthread _service;  // Global thread for service execution
+                        //
+/* Keyboard stuff*/
+struct termios orig_termios;
 
+void restore_terminal() {
+    tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
+}
+
+void handle_sigint(int sig) {
+    restore_terminal();
+    syslog(LOG_INFO, "\n[Terminal restored on signal %d]\n", sig);
+    exit(0);
+}
+
+void set_raw_mode() {
+    struct termios new_termios;
+
+    // Save original settings
+    tcgetattr(STDIN_FILENO, &orig_termios);
+    atexit(restore_terminal);                // Restore at normal exit
+    signal(SIGINT, handle_sigint);           // Restore on Ctrl-C
+
+    new_termios = orig_termios;
+
+    // Set raw mode: no canonical, no echo
+    new_termios.c_lflag &= ~(ICANON | ECHO);
+    new_termios.c_cc[VMIN] = 1;
+    new_termios.c_cc[VTIME] = 0;
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &new_termios);
+}
+
+/* Services */
 void serviceCapture(){
   SAMPLE temp_buf[FRAMES_PER_BUFFER];
 
@@ -106,22 +143,39 @@ void servicePlayback(){
     }
   }
 }
-
+uint8_t filter_effect_level = 10, filter_enabled = 1;
 void serviceKeyboard() {
-    static bool initialized = false;
-    if (!initialized) {
-        int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-        fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
-        openlog("KeyWatcher", LOG_PID | LOG_CONS, LOG_USER);
-        initialized = true;
-    }
+  if(run_once > 0){
+    set_raw_mode();
 
-    char buf[256];
-    ssize_t len = read(STDIN_FILENO, buf, sizeof(buf) - 1);
-    if (len > 0) {
-        buf[len] = '\0';
-        syslog(LOG_INFO, "Key(s) pressed: %s", buf);
+    char ch;
+    while (read(STDIN_FILENO, &ch, 1) > 0) {
+      switch (ch) {
+
+        case 'f':
+          filter_enabled = !filter_enabled;
+          syslog(LOG_INFO, "Filter toggled %s\n", filter_enabled ? "ON" : "OFF");
+          break;
+
+        case ',':
+          if(filter_effect_level > 0)
+            filter_effect_level--;
+          syslog(LOG_INFO, "Effect level: %d\n", filter_effect_level);
+          break;
+
+        case '.':
+          if(filter_effect_level < 10)
+            filter_effect_level++;
+          syslog(LOG_INFO, "Effect level: %d\n", filter_effect_level);
+          break;
+
+        default:
+          syslog(LOG_INFO, "Key pressed: %c\n", ch);
+          break;
+      }
     }
+    syslog(LOG_INFO,"You typed: %c\n", ch);
+  }
 }
 
 //void serviceKeyboard() {
@@ -223,11 +277,11 @@ int main(){
 
     syslog(LOG_INFO, "Try to Add Services");
     sequencer.addService(serviceCapture, 1, 5, 5);
-    sequencer.addService(serviceEffect, 1, 6, 5000);
+    //sequencer.addService(serviceEffect, 1, 6, 5000);
     sequencer.addService(servicePlayback, 1, 10, 5);
 
     // change in and out effects
-    sequencer.addService(serviceKeyboard, 1, 98, 1000);
+    sequencer.addService(serviceKeyboard, 1, 98, 100);
     
     // Register signal handler
     //sigaction(SIGINT, &sa, NULL);
@@ -259,5 +313,7 @@ int main(){
 
     syslog(LOG_INFO, "Services stopped");
     closelog();
+    atexit(restore_terminal);                // Restore at normal exit
+    signal(SIGINT, handle_sigint);           // Restore on ctrl-c
     return 0;
 }
