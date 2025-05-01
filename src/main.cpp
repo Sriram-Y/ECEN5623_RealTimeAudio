@@ -31,12 +31,10 @@ snd_pcm_hw_params_t *hw_params;
 //#define SAMPLE_FORMAT SND_PCM_FORMAT_FLOAT_LE
 //typedef float SAMPLE;
 
-/* Echo Parameters */
+/* reverb Parameters */
 #define capture_buffer_FRAMES (FRAMES_PER_BUFFER * 4) // Bigger internal buffer for this windowed effect
 #define effects_buffer_FRAMES (FRAMES_PER_BUFFER * 4) // Bigger internal buffer for this windowed effect
-#define MAX_ECHOES 5
-//#define ECHO_DELAY_FRAMES 2205  // ~50ms at 44.1kHz
-#define ECHO_DELAY_FRAMES 4410  // ~100ms at 44.1kHz
+#define MAX_reverbES 5
 
 SAMPLE capture_buffer[capture_buffer_FRAMES];
 int capture_buffer_head = 0;
@@ -46,7 +44,10 @@ SAMPLE effects_buffer[effects_buffer_FRAMES];
 int effects_buffer_head = 0;
 int effects_buffer_tail = 0;
 
-static uint8_t filter_effect_level = 10, filter_enabled = 1;
+static uint8_t filter_effect_level = 10, filter_enabled = 0;
+static uint8_t reverb_effect_level = 10,   reverb_enabled = 0;
+static uint8_t fuzz_effect_level = 10,   fuzz_enabled = 0;
+
 //AudioCapture cap;
 const int channels = 1;
 const int seconds = 5;
@@ -60,6 +61,7 @@ std::jthread _service;  // Global thread for service execution
                         //
 /* Keyboard stuff*/
 struct termios orig_termios;
+static effects_mode current_effect = EFFECT_NONE;
 
 void restore_terminal() {
     tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
@@ -104,9 +106,9 @@ void serviceCapture(){
 
   for (int i = 0; i < frames; i++) {
     //temp_buf[i] = fuzz_effect(temp_buf[i]);
-    //temp_buf[i] = simple_echo_effect(temp_buf[i]);
-    //temp_buf[i] = simple_echo_effect(temp_buf[i]);
-    //temp_buf[i] = simple_echo_effect(temp_buf[i]);
+    //temp_buf[i] = simple_reverb_effect(temp_buf[i]);
+    //temp_buf[i] = simple_reverb_effect(temp_buf[i]);
+    //temp_buf[i] = simple_reverb_effect(temp_buf[i]);
     // Passthru
     temp_buf[i] = (temp_buf[i]);
 
@@ -127,20 +129,53 @@ void serviceEffect(){
     int frames_available = (capture_buffer_head - capture_buffer_tail + capture_buffer_FRAMES) % capture_buffer_FRAMES;
 
     if (frames_available >= FRAMES_PER_BUFFER) {
-      SAMPLE temp_fx[FRAMES_PER_BUFFER];
+      SAMPLE temp_dry_fx[FRAMES_PER_BUFFER] = {0};
+      SAMPLE temp_filter_fx[FRAMES_PER_BUFFER];
+      SAMPLE temp_reverb_fx[FRAMES_PER_BUFFER];
+      SAMPLE temp_fuzz_fx[FRAMES_PER_BUFFER];
+      SAMPLE temp_mixed_fx[FRAMES_PER_BUFFER];
 
       for (int i = 0; i < FRAMES_PER_BUFFER; i++) {
-        temp_fx[i] = capture_buffer[capture_buffer_tail];
+        temp_dry_fx[i] = capture_buffer[capture_buffer_tail];
         capture_buffer_tail = (capture_buffer_tail + 1) % capture_buffer_FRAMES;
 
         // Apply effects
-        if(filter_enabled)
-          temp_fx[i] = simple_echo_effect(temp_fx[i]);
+        if(filter_enabled){
+          temp_filter_fx[i] = filter_effect(temp_dry_fx[i], filter_effect_level );
+        }
         else
-          temp_fx[i] = (temp_fx[i]);
+          temp_filter_fx[i] = 0;
+
+        if(reverb_enabled){
+          temp_reverb_fx[i] = simple_reverb_effect(temp_dry_fx[i]);
+        }
+        else
+          temp_reverb_fx[i] = 0;
+
+        if(fuzz_enabled){
+          temp_fuzz_fx[i] = fuzz_effect(temp_dry_fx[i]);
+        }
+        else
+          temp_fuzz_fx[i] = 0;
+
+        // Mix effects
+        if(reverb_enabled == 0 && fuzz_enabled == 0 && filter_enabled == 0)
+          temp_mixed_fx[i] = (temp_dry_fx[i]);
+        else if(reverb_enabled)
+          temp_mixed_fx[i] = temp_reverb_fx[i];
+        else if(filter_enabled)
+          temp_mixed_fx[i] = temp_filter_fx[i];
+        else if(fuzz_enabled)
+          temp_mixed_fx[i] = temp_fuzz_fx[i];
+        /*else{
+          temp_mixed_fx[i] += temp_fuzz_fx[i] >> 2;
+          temp_mixed_fx[i] += temp_filter_fx[i] >> 2;
+          temp_mixed_fx[i] += temp_reverb_fx[i] >> 2;
+          */
+        //}
 
         // Add to Effects bufer
-        effects_buffer[effects_buffer_head] = temp_fx[i];
+        effects_buffer[effects_buffer_head] = temp_mixed_fx[i];
         effects_buffer_head = (effects_buffer_head + 1) % effects_buffer_FRAMES;
 
         if (effects_buffer_head == effects_buffer_tail) {
@@ -184,21 +219,94 @@ void serviceKeyboard() {
     while (keyboard_running && read(STDIN_FILENO, &ch, 1) > 0) {
       switch (ch) {
 
+        case 'h': // help
+          current_effect = EFFECT_NONE;
+          syslog(LOG_INFO, "USAGE:\n\
+                           -----------------------------------\n\
+                           h -- prints this message\n\
+                           p -- pauses all effects\n\
+                           +/=-- INCReases selected effect\n\
+                           -/_-- DECreases selected effect\n\
+                           -----------------------------------\n\
+                           Effects\n\
+                           Pressing one of the following keys\n\
+                           selects the effect and toggles it\n\
+                           -----------------------------------\n\
+                           r  -- Reverb effect toggle\n\
+                           f  -- Filter effect toggle\n\
+                           d  -- Fuzzy distortion effect toggle\n\
+                           -----------------------------------\n");
+          break;
+
+        case 'p': // pause effects
+            current_effect = EFFECT_NONE;
+            filter_enabled = 0;
+            fuzz_enabled = 0;
+            reverb_enabled = 0;
+            syslog(LOG_INFO, "Pausing all effects...\n");
+          syslog(LOG_INFO, "Current Mode: %d\n", current_effect);
+          break;
+
         case 'f':
+          current_effect = EFFECT_FILTER;
+          syslog(LOG_INFO, "Current Mode: %d\n", current_effect);
           filter_enabled = !filter_enabled;
           syslog(LOG_INFO, "Filter toggled %s\n", filter_enabled ? "ON" : "OFF");
           break;
 
-        case ',':
-          if(filter_effect_level > 0)
-            filter_effect_level--;
-          syslog(LOG_INFO, "Effect level: %d\n", filter_effect_level);
+        case 'd':
+          current_effect = EFFECT_FUZZ;
+          syslog(LOG_INFO, "Current Mode: %d\n", current_effect);
+          fuzz_enabled = !fuzz_enabled;
+          syslog(LOG_INFO, "Fuzzy distortion toggled %s\n", fuzz_enabled ? "ON" : "OFF");
           break;
 
-        case '.':
-          if(filter_effect_level < 10)
-            filter_effect_level++;
-          syslog(LOG_INFO, "Effect level: %d\n", filter_effect_level);
+
+        case 'r':
+          current_effect = EFFECT_REVERB;
+          syslog(LOG_INFO, "Current Mode: %d\n", current_effect);
+          reverb_enabled = !reverb_enabled;
+          syslog(LOG_INFO, "Reverb toggled %s\n", reverb_enabled ? "ON" : "OFF");
+          break;
+
+        // decrease effect
+        case '-':
+          syslog(LOG_INFO, "Current Mode: %d\n", current_effect);
+          if(current_effect == EFFECT_FILTER){
+            if(filter_effect_level > 0)
+              filter_effect_level--;
+            syslog(LOG_INFO, "Filter effect level: %d\n", filter_effect_level);
+          }
+          else if(current_effect == EFFECT_FUZZ){
+            if(fuzz_effect_level > 0)
+              fuzz_effect_level--;
+            syslog(LOG_INFO, "Fuzz effect level: %d\n", fuzz_effect_level);
+          }
+          else if(current_effect == EFFECT_REVERB){
+            if(reverb_effect_level > 0)
+              reverb_effect_level--;
+            syslog(LOG_INFO, "Reverb effect level: %d\n", reverb_effect_level);
+          }
+          break;
+
+        // increase effect
+        case '=':
+          syslog(LOG_INFO, "Current Mode: %d\n", current_effect);
+          if(current_effect == EFFECT_FILTER){
+            if(filter_effect_level < 10)
+              filter_effect_level++;
+            syslog(LOG_INFO, "Filter effect level: %d\n", filter_effect_level);
+          }
+          else if(current_effect == EFFECT_FUZZ){
+            if(fuzz_effect_level < 10)
+              fuzz_effect_level++;
+            syslog(LOG_INFO, "fuzz effect level: %d\n", fuzz_effect_level);
+          }
+          else if(current_effect == EFFECT_REVERB){
+            if(reverb_effect_level < 10)
+              reverb_effect_level++;
+            syslog(LOG_INFO, "reverb effect level: %d\n", reverb_effect_level);
+          }
           break;
 
         case '\n':
@@ -207,39 +315,13 @@ void serviceKeyboard() {
 
         default:
           syslog(LOG_INFO, "Key pressed: %c\n", ch);
+          syslog(LOG_INFO, "For usage, press 'h'");
           break;
       }
     }
     //syslog(LOG_INFO,"You typed: %c\n", ch);
   }
 }
-
-//void serviceKeyboard() {
-//  static bool initialized = false;
-//  if (!initialized) {
-//    // Set stdin to non-blocking
-//    int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-//    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
-//
-//    // Set terminal to raw mode (optional)
-//    struct termios term;
-//    tcgetattr(STDIN_FILENO, &term);
-//    term.c_lflag &= ~(ICANON | ECHO);
-//    tcsetattr(STDIN_FILENO, TCSANOW, &term);
-//
-//    // Open syslog
-//    openlog("KeyWatcher", LOG_PID | LOG_CONS, LOG_USER);
-//    initialized = true;
-//  }
-//
-//  char c;
-//  while (read(STDIN_FILENO, &c, 1) > 0) {
-//    char buf[64];
-//    snprintf(buf, sizeof(buf), "Key pressed: %c", c);
-//    syslog(LOG_INFO, "%s", buf);
-//  }
-//}
-
 
 int audio_setup(snd_pcm_t **capture_handle, snd_pcm_t **playback_handle, snd_pcm_hw_params_t **hw_params) {
     int err;

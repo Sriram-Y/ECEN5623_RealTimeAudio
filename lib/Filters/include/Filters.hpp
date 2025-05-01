@@ -24,15 +24,25 @@ typedef int16_t SAMPLE;
 #define INTERNAL_BUFFER_FRAMES (FRAMES_PER_BUFFER * 4) // Bigger internal buffer
 #define MAX_ECHOES 5
 //#define ECHO_DELAY_FRAMES 2205  // ~50ms at 44.1kHz
-#define ECHO_DELAY_FRAMES 4410  // ~100ms at 44.1kHz
+#define REVERB_DELAY_FRAMES 4410  // ~100ms at 44.1kHz
+#define ECHO_DELAY_FRAMES 44100  // ~1000ms at 44.1kHz
 typedef int16_t SAMPLE;
 
+typedef enum {
+    EFFECT_NONE = 0,
+    EFFECT_FILTER = 1,
+    EFFECT_REVERB = 2,
+    EFFECT_FUZZ = 3
+} effects_mode;
 
 /* Simple echo effect */
-SAMPLE simple_echo_effect(SAMPLE input);
+SAMPLE simple_reverb_effect(SAMPLE input_sample);
 
-/* Simple fuzz effect */
-SAMPLE fuzz_effect(SAMPLE input);
+/* Filter effect */
+SAMPLE filter_effect(SAMPLE input_sample, uint8_t cutoff_preset);
+
+/* Fuzz effect */
+SAMPLE fuzz_effect(SAMPLE input_sample);
 
 void Filters_function();
 
