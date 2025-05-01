@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <termios.h>
 #include <fcntl.h>
+#include <stdatomic.h>
 
 // Student-generated headers
 #include "AudioOutput.hpp"
@@ -31,22 +32,29 @@ snd_pcm_hw_params_t *hw_params;
 //typedef float SAMPLE;
 
 /* Echo Parameters */
-#define INTERNAL_BUFFER_FRAMES (FRAMES_PER_BUFFER * 4) // Bigger internal buffer for this windowed effect
+#define capture_buffer_FRAMES (FRAMES_PER_BUFFER * 4) // Bigger internal buffer for this windowed effect
+#define effects_buffer_FRAMES (FRAMES_PER_BUFFER * 4) // Bigger internal buffer for this windowed effect
 #define MAX_ECHOES 5
 //#define ECHO_DELAY_FRAMES 2205  // ~50ms at 44.1kHz
 #define ECHO_DELAY_FRAMES 4410  // ~100ms at 44.1kHz
 
-SAMPLE internal_buffer[INTERNAL_BUFFER_FRAMES];
-int internal_buffer_head = 0;
-int internal_buffer_tail = 0;
+SAMPLE capture_buffer[capture_buffer_FRAMES];
+int capture_buffer_head = 0;
+int capture_buffer_tail = 0;
 
+SAMPLE effects_buffer[effects_buffer_FRAMES];
+int effects_buffer_head = 0;
+int effects_buffer_tail = 0;
+
+static uint8_t filter_effect_level = 10, filter_enabled = 1;
 //AudioCapture cap;
 const int channels = 1;
 const int seconds = 5;
 //AudioData cap_data ;
 //AudioData cap_data2 ;
 //extern Sequencer sequencer;
-int run_once = 0;
+atomic_int run_once = 0;
+atomic_int keyboard_running = 1;
 
 std::jthread _service;  // Global thread for service execution
                         //
@@ -85,7 +93,6 @@ void set_raw_mode() {
 void serviceCapture(){
   SAMPLE temp_buf[FRAMES_PER_BUFFER];
 
-  // Using fprin
   int frames = snd_pcm_readi(capture_handle, temp_buf, FRAMES_PER_BUFFER);
   if (frames == -EPIPE) {
     syslog(LOG_PERROR, "Overrun occurred during capture\n");
@@ -97,17 +104,18 @@ void serviceCapture(){
 
   for (int i = 0; i < frames; i++) {
     //temp_buf[i] = fuzz_effect(temp_buf[i]);
-    temp_buf[i] = simple_echo_effect(temp_buf[i]);
     //temp_buf[i] = simple_echo_effect(temp_buf[i]);
     //temp_buf[i] = simple_echo_effect(temp_buf[i]);
-    //temp_buf[i] = (temp_buf[i]);
+    //temp_buf[i] = simple_echo_effect(temp_buf[i]);
+    // Passthru
+    temp_buf[i] = (temp_buf[i]);
 
-    internal_buffer[internal_buffer_head] = temp_buf[i];
-    internal_buffer_head = (internal_buffer_head + 1) % INTERNAL_BUFFER_FRAMES;
+    capture_buffer[capture_buffer_head] = temp_buf[i];
+    capture_buffer_head = (capture_buffer_head + 1) % capture_buffer_FRAMES;
 
-    if (internal_buffer_head == internal_buffer_tail) {
+    if (capture_buffer_head == capture_buffer_tail) {
       syslog(LOG_PERROR, "Warning: internal buffer overrun\n");
-      internal_buffer_tail = (internal_buffer_tail + 1) % INTERNAL_BUFFER_FRAMES;
+      capture_buffer_tail = (capture_buffer_tail + 1) % capture_buffer_FRAMES;
     }
   }
   if(run_once == 0)
@@ -116,20 +124,45 @@ void serviceCapture(){
 
 void serviceEffect(){
   if(run_once > 0){
+    int frames_available = (capture_buffer_head - capture_buffer_tail + capture_buffer_FRAMES) % capture_buffer_FRAMES;
 
+    if (frames_available >= FRAMES_PER_BUFFER) {
+      SAMPLE temp_fx[FRAMES_PER_BUFFER];
+
+      for (int i = 0; i < FRAMES_PER_BUFFER; i++) {
+        temp_fx[i] = capture_buffer[capture_buffer_tail];
+        capture_buffer_tail = (capture_buffer_tail + 1) % capture_buffer_FRAMES;
+
+        // Apply effects
+        if(filter_enabled)
+          temp_fx[i] = simple_echo_effect(temp_fx[i]);
+        else
+          temp_fx[i] = (temp_fx[i]);
+
+        // Add to Effects bufer
+        effects_buffer[effects_buffer_head] = temp_fx[i];
+        effects_buffer_head = (effects_buffer_head + 1) % effects_buffer_FRAMES;
+
+        if (effects_buffer_head == effects_buffer_tail) {
+          syslog(LOG_PERROR, "Warning: internal buffer overrun\n");
+          effects_buffer_tail = (effects_buffer_tail + 1) % effects_buffer_FRAMES;
+        }
+      }
+    }
   }
 }
 
 void servicePlayback(){
   if(run_once > 0){
-    int frames_available = (internal_buffer_head - internal_buffer_tail + INTERNAL_BUFFER_FRAMES) % INTERNAL_BUFFER_FRAMES;
+    // take from effects buffer
+    int frames_available = (effects_buffer_head - effects_buffer_tail + effects_buffer_FRAMES) % effects_buffer_FRAMES;
 
     if (frames_available >= FRAMES_PER_BUFFER) {
       SAMPLE temp_out[FRAMES_PER_BUFFER];
 
       for (int i = 0; i < FRAMES_PER_BUFFER; i++) {
-        temp_out[i] = internal_buffer[internal_buffer_tail];
-        internal_buffer_tail = (internal_buffer_tail + 1) % INTERNAL_BUFFER_FRAMES;
+        temp_out[i] = effects_buffer[effects_buffer_tail];
+        effects_buffer_tail = (effects_buffer_tail + 1) % effects_buffer_FRAMES;
       }
 
       int frames = snd_pcm_writei(playback_handle, temp_out, FRAMES_PER_BUFFER);
@@ -143,13 +176,12 @@ void servicePlayback(){
     }
   }
 }
-uint8_t filter_effect_level = 10, filter_enabled = 1;
 void serviceKeyboard() {
-  if(run_once > 0){
+  if(run_once > 0 && keyboard_running){
     set_raw_mode();
 
     char ch;
-    while (read(STDIN_FILENO, &ch, 1) > 0) {
+    while (keyboard_running && read(STDIN_FILENO, &ch, 1) > 0) {
       switch (ch) {
 
         case 'f':
@@ -169,12 +201,16 @@ void serviceKeyboard() {
           syslog(LOG_INFO, "Effect level: %d\n", filter_effect_level);
           break;
 
+        case '\n':
+          keyboard_running = 0;
+          break;
+
         default:
           syslog(LOG_INFO, "Key pressed: %c\n", ch);
           break;
       }
     }
-    syslog(LOG_INFO,"You typed: %c\n", ch);
+    //syslog(LOG_INFO,"You typed: %c\n", ch);
   }
 }
 
@@ -277,7 +313,7 @@ int main(){
 
     syslog(LOG_INFO, "Try to Add Services");
     sequencer.addService(serviceCapture, 1, 5, 5);
-    //sequencer.addService(serviceEffect, 1, 6, 5000);
+    sequencer.addService(serviceEffect, 1, 6, 5);
     sequencer.addService(servicePlayback, 1, 10, 5);
 
     // change in and out effects
@@ -307,6 +343,7 @@ int main(){
     });
     waitForEnterThread.join();
 
+    keyboard_running = 0;
     sequencer.stopServices();
     snd_pcm_close(capture_handle);
     snd_pcm_close(playback_handle);
@@ -314,6 +351,6 @@ int main(){
     syslog(LOG_INFO, "Services stopped");
     closelog();
     atexit(restore_terminal);                // Restore at normal exit
-    signal(SIGINT, handle_sigint);           // Restore on ctrl-c
+    //signal(SIGINT, handle_sigint);           // Restore on ctrl-c
     return 0;
 }
