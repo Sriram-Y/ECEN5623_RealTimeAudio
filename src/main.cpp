@@ -48,15 +48,15 @@ std::jthread _service;  // Global thread for service execution
 void serviceCapture(){
   SAMPLE temp_buf[FRAMES_PER_BUFFER];
 
+  // Using fprin
   int frames = snd_pcm_readi(capture_handle, temp_buf, FRAMES_PER_BUFFER);
   if (frames == -EPIPE) {
-    fprintf(stderr, "Overrun occurred during capture\n");
-    snd_pcm_prepare(capture_handle);
+    syslog(LOG_PERROR, "Overrun occurred during capture\n");
   } 
   else if (frames < 0) {
-    fprintf(stderr, "Error from read: %s\n", snd_strerror(frames));
-    snd_pcm_prepare(capture_handle);
+    syslog(LOG_PERROR, "Error from read\n");
   }
+  snd_pcm_prepare(capture_handle);
 
   for (int i = 0; i < frames; i++) {
     //temp_buf[i] = fuzz_effect(temp_buf[i]);
@@ -69,7 +69,7 @@ void serviceCapture(){
     internal_buffer_head = (internal_buffer_head + 1) % INTERNAL_BUFFER_FRAMES;
 
     if (internal_buffer_head == internal_buffer_tail) {
-      fprintf(stderr, "Warning: internal buffer overrun\n");
+      syslog(LOG_PERROR, "Warning: internal buffer overrun\n");
       internal_buffer_tail = (internal_buffer_tail + 1) % INTERNAL_BUFFER_FRAMES;
     }
   }
@@ -97,72 +97,74 @@ void servicePlayback(){
 
       int frames = snd_pcm_writei(playback_handle, temp_out, FRAMES_PER_BUFFER);
       if (frames == -EPIPE) {
-        fprintf(stderr, "Underrun occurred during playback\n");
-        snd_pcm_prepare(playback_handle);
+        syslog(LOG_PERROR, "Underrun occurred during playback\n");
       } 
       else if (frames < 0) {
-        fprintf(stderr, "Error from write: %s\n", snd_strerror(frames));
-        snd_pcm_prepare(playback_handle);
+        syslog(LOG_PERROR, "Error from write: %s\n", snd_strerror(frames));
       }
+      snd_pcm_prepare(playback_handle);
     }
   }
 }
 
-//int audio_setup(){
+void serviceKeyboard() {
+    static bool initialized = false;
+    if (!initialized) {
+        int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+        fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+        openlog("KeyWatcher", LOG_PID | LOG_CONS, LOG_USER);
+        initialized = true;
+    }
+
+    char buf[256];
+    ssize_t len = read(STDIN_FILENO, buf, sizeof(buf) - 1);
+    if (len > 0) {
+        buf[len] = '\0';
+        syslog(LOG_INFO, "Key(s) pressed: %s", buf);
+    }
+}
+
+//void serviceKeyboard() {
+//  static bool initialized = false;
+//  if (!initialized) {
+//    // Set stdin to non-blocking
+//    int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+//    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 //
-//    int err;
+//    // Set terminal to raw mode (optional)
+//    struct termios term;
+//    tcgetattr(STDIN_FILENO, &term);
+//    term.c_lflag &= ~(ICANON | ECHO);
+//    tcsetattr(STDIN_FILENO, TCSANOW, &term);
 //
-//    /* Open capture device */
-//    if ((err = snd_pcm_open(&capture_handle, PCM_INPUT_DEVICE, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
-//        fprintf(stderr, "cannot open audio capture device (%s)\n", snd_strerror(err));
-//        //syslog(LOG_ERROR, "Try to Add Services");
-//        return 1;
-//    }
+//    // Open syslog
+//    openlog("KeyWatcher", LOG_PID | LOG_CONS, LOG_USER);
+//    initialized = true;
+//  }
 //
-//    /* Open playback device */
-//    if ((err = snd_pcm_open(&playback_handle, PCM_OUTPUT_DEVICE, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
-//        fprintf(stderr, "cannot open audio playback device (%s)\n", snd_strerror(err));
-//        return 1;
-//    }
-//
-//    /* Set hardware parameters for capture */
-//    snd_pcm_hw_params_malloc(&hw_params);
-//    snd_pcm_hw_params_any(capture_handle, hw_params);
-//    snd_pcm_hw_params_set_access(capture_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
-//    snd_pcm_hw_params_set_format(capture_handle, hw_params, SAMPLE_FORMAT);
-//    snd_pcm_hw_params_set_rate(capture_handle, hw_params, SAMPLE_RATE, 0);
-//    snd_pcm_hw_params_set_channels(capture_handle, hw_params, CHANNELS);
-//    snd_pcm_hw_params(capture_handle, hw_params);
-//    snd_pcm_hw_params_free(hw_params);
-//    snd_pcm_prepare(capture_handle);
-//
-//    /* Set hardware parameters for playback */
-//    snd_pcm_hw_params_malloc(&hw_params);
-//    snd_pcm_hw_params_any(playback_handle, hw_params);
-//    snd_pcm_hw_params_set_access(playback_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
-//    snd_pcm_hw_params_set_format(playback_handle, hw_params, SAMPLE_FORMAT);
-//    snd_pcm_hw_params_set_rate(playback_handle, hw_params, SAMPLE_RATE, 0);
-//    snd_pcm_hw_params_set_channels(playback_handle, hw_params, CHANNELS);
-//    snd_pcm_hw_params(playback_handle, hw_params);
-//    snd_pcm_hw_params_free(hw_params);
-//    snd_pcm_prepare(playback_handle);
-//    int16_t silence[FRAMES_PER_BUFFER] = {0};
-//
-//  return 0;
+//  char c;
+//  while (read(STDIN_FILENO, &c, 1) > 0) {
+//    char buf[64];
+//    snprintf(buf, sizeof(buf), "Key pressed: %c", c);
+//    syslog(LOG_INFO, "%s", buf);
+//  }
 //}
+
 
 int audio_setup(snd_pcm_t **capture_handle, snd_pcm_t **playback_handle, snd_pcm_hw_params_t **hw_params) {
     int err;
 
     // Open capture device
     if ((err = snd_pcm_open(capture_handle, PCM_INPUT_DEVICE, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
-        fprintf(stderr, "cannot open audio capture device (%s)\n", snd_strerror(err));
+        //fprintf(stderr, "cannot open audio capture device (%s)\n", snd_strerror(err));
+        syslog(LOG_PERROR, "cannot open audio capture device (%s)\n", snd_strerror(err));
         return 1;
     }
 
     // Open playback device
     if ((err = snd_pcm_open(playback_handle, PCM_OUTPUT_DEVICE, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
-        fprintf(stderr, "cannot open audio playback device (%s)\n", snd_strerror(err));
+        //fprintf(stderr, "cannot open audio playback device (%s)\n", snd_strerror(err));
+        syslog(LOG_PERROR, "cannot open audio playback device (%s)\n", snd_strerror(err));
         return 1;
     }
 
@@ -203,8 +205,9 @@ int main(){
     /* audio setup (not yet rt)*/
 
     if ((err = audio_setup(&capture_handle, &playback_handle, &hw_params))) {
-        fprintf(stderr, "Cannot setup the audio (%s)\n", snd_strerror(err));
-        //syslog(LOG_ERROR, "Try to Add Services");
+        //fprintf(stderr, "Cannot setup the audio (%s)\n", snd_strerror(err));
+        syslog(LOG_PERROR, "Cannot setup the audio (%s)\n", snd_strerror(err));
+        //syslog(LOG_PERROR, "Try to Add Services");
         exit(1);
     }
     syslog(LOG_INFO, "Success of setup capture\n");
@@ -220,8 +223,11 @@ int main(){
 
     syslog(LOG_INFO, "Try to Add Services");
     sequencer.addService(serviceCapture, 1, 5, 5);
-    //sequencer.addService(serviceEffect, 1, 81, 5000);
+    sequencer.addService(serviceEffect, 1, 6, 5000);
     sequencer.addService(servicePlayback, 1, 10, 5);
+
+    // change in and out effects
+    sequencer.addService(serviceKeyboard, 1, 98, 1000);
     
     // Register signal handler
     //sigaction(SIGINT, &sa, NULL);
