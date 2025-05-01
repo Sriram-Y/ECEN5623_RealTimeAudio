@@ -42,6 +42,10 @@ int setup_capture(AudioCapture *cap, int rate, int channels)
 AudioData start_capture(AudioCapture *cap, int seconds)
 {
     int loops = (cap->rate / cap->frames) * seconds;
+    
+
+    // force 5ms
+    //loops = 1;
 
     size_t total_size = loops * cap->frame_buffer_size;
     char *buffer = (char *)malloc(total_size);
@@ -50,6 +54,7 @@ AudioData start_capture(AudioCapture *cap, int seconds)
     AudioData result;
 
     syslog(LOG_INFO, "### Recording for %d seconds... ###\n", seconds);
+    syslog(LOG_INFO, "### Recording for %d loops... ###\n", loops);
 
     for (int i = 0; i < loops; i++)
     {
