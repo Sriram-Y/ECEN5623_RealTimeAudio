@@ -219,9 +219,9 @@ int main(){
   
 
     syslog(LOG_INFO, "Try to Add Services");
-    sequencer.addService(serviceCapture, 1, 80, 5000);
+    sequencer.addService(serviceCapture, 1, 5, 5);
     //sequencer.addService(serviceEffect, 1, 81, 5000);
-    sequencer.addService(servicePlayback, 1, 82, 1000);
+    sequencer.addService(servicePlayback, 1, 10, 5);
     
     // Register signal handler
     //sigaction(SIGINT, &sa, NULL);
@@ -241,7 +241,8 @@ int main(){
     std::thread waitForEnterThread([]()
     {
         std::string input;
-        std::cout << "Press ENTER to stop services..." << std::endl;
+        syslog(LOG_INFO, "Press ENTER to stop services...");
+        //std::cout << "Press ENTER to stop services..." << std::endl;
         std::getline(std::cin, input);
     });
     waitForEnterThread.join();
