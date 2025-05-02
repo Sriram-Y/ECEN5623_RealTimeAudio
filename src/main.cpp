@@ -140,33 +140,40 @@ void serviceEffect(){
         capture_buffer_tail = (capture_buffer_tail + 1) % capture_buffer_FRAMES;
 
         // Apply effects
+
+        if(fuzz_enabled){
+          temp_fuzz_fx[i] = fuzz_effect(temp_dry_fx[i]);
+          temp_dry_fx[i] = temp_fuzz_fx[i];
+        }
+        else
+          temp_fuzz_fx[i] = 0;
+
         if(filter_enabled){
           temp_filter_fx[i] = filter_effect(temp_dry_fx[i], filter_effect_level );
+          temp_dry_fx[i] = temp_filter_fx[i];
         }
         else
           temp_filter_fx[i] = 0;
 
         if(reverb_enabled){
           temp_reverb_fx[i] = simple_reverb_effect(temp_dry_fx[i]);
+          temp_dry_fx[i] = temp_reverb_fx[i];
         }
         else
           temp_reverb_fx[i] = 0;
 
-        if(fuzz_enabled){
-          temp_fuzz_fx[i] = fuzz_effect(temp_dry_fx[i]);
-        }
-        else
-          temp_fuzz_fx[i] = 0;
-
         // Mix effects
         if(reverb_enabled == 0 && fuzz_enabled == 0 && filter_enabled == 0)
           temp_mixed_fx[i] = (temp_dry_fx[i]);
-        else if(reverb_enabled)
+        else if(reverb_enabled == 1 && fuzz_enabled == 0 && filter_enabled == 0)
           temp_mixed_fx[i] = temp_reverb_fx[i];
-        else if(filter_enabled)
+        else if(reverb_enabled == 0 && fuzz_enabled == 0 && filter_enabled == 1)
           temp_mixed_fx[i] = temp_filter_fx[i];
-        else if(fuzz_enabled)
+        else if(reverb_enabled == 0 && fuzz_enabled == 1 && filter_enabled == 0)
           temp_mixed_fx[i] = temp_fuzz_fx[i];
+        else
+          temp_mixed_fx[i] = (temp_dry_fx[i]);
+        
         /*else{
           temp_mixed_fx[i] += temp_fuzz_fx[i] >> 2;
           temp_mixed_fx[i] += temp_filter_fx[i] >> 2;
@@ -225,8 +232,8 @@ void serviceKeyboard() {
                            -----------------------------------\n\
                            h -- prints this message\n\
                            p -- pauses all effects\n\
-                           +/=-- INCReases selected effect\n\
-                           -/_-- DECreases selected effect\n\
+                           ] -- INCReases selected effect\n\
+                           [ -- DECreases selected effect\n\
                            -----------------------------------\n\
                            Effects\n\
                            Pressing one of the following keys\n\
@@ -249,14 +256,14 @@ void serviceKeyboard() {
 
         case 'f':
           current_effect = EFFECT_FILTER;
-          syslog(LOG_INFO, "Current Mode: %d\n", current_effect);
+          syslog(LOG_INFO, "Current Mode: Filter %d\n", current_effect);
           filter_enabled = !filter_enabled;
           syslog(LOG_INFO, "Filter toggled %s\n", filter_enabled ? "ON" : "OFF");
           break;
 
         case 'd':
           current_effect = EFFECT_FUZZ;
-          syslog(LOG_INFO, "Current Mode: %d\n", current_effect);
+          syslog(LOG_INFO, "Current Mode: Fuzz %d\n", current_effect);
           fuzz_enabled = !fuzz_enabled;
           syslog(LOG_INFO, "Fuzzy distortion toggled %s\n", fuzz_enabled ? "ON" : "OFF");
           break;
@@ -264,13 +271,13 @@ void serviceKeyboard() {
 
         case 'r':
           current_effect = EFFECT_REVERB;
-          syslog(LOG_INFO, "Current Mode: %d\n", current_effect);
+          syslog(LOG_INFO, "Current Mode: Reverb %d\n", current_effect);
           reverb_enabled = !reverb_enabled;
           syslog(LOG_INFO, "Reverb toggled %s\n", reverb_enabled ? "ON" : "OFF");
           break;
 
         // decrease effect
-        case '-':
+        case '[':
           syslog(LOG_INFO, "Current Mode: %d\n", current_effect);
           if(current_effect == EFFECT_FILTER){
             if(filter_effect_level > 0)
@@ -290,7 +297,7 @@ void serviceKeyboard() {
           break;
 
         // increase effect
-        case '=':
+        case ']':
           syslog(LOG_INFO, "Current Mode: %d\n", current_effect);
           if(current_effect == EFFECT_FILTER){
             if(filter_effect_level < 10)
@@ -300,12 +307,12 @@ void serviceKeyboard() {
           else if(current_effect == EFFECT_FUZZ){
             if(fuzz_effect_level < 10)
               fuzz_effect_level++;
-            syslog(LOG_INFO, "fuzz effect level: %d\n", fuzz_effect_level);
+            syslog(LOG_INFO, "Fuzz effect level: %d\n", fuzz_effect_level);
           }
           else if(current_effect == EFFECT_REVERB){
             if(reverb_effect_level < 10)
               reverb_effect_level++;
-            syslog(LOG_INFO, "reverb effect level: %d\n", reverb_effect_level);
+            syslog(LOG_INFO, "Reverb effect level: %d\n", reverb_effect_level);
           }
           break;
 
