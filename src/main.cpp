@@ -142,7 +142,7 @@ void serviceEffect(){
         // Apply effects
 
         if(fuzz_enabled){
-          temp_fuzz_fx[i] = fuzz_effect(temp_dry_fx[i]);
+          temp_fuzz_fx[i] = fuzz_effect(temp_dry_fx[i], fuzz_effect_level);
           temp_dry_fx[i] = temp_fuzz_fx[i];
         }
         else
@@ -156,12 +156,13 @@ void serviceEffect(){
           temp_filter_fx[i] = 0;
 
         if(reverb_enabled){
-          temp_reverb_fx[i] = simple_reverb_effect(temp_dry_fx[i]);
+          //temp_reverb_fx[i] = simple_reverb_effect(temp_dry_fx[i], reverb_effect_level);
+          //temp_reverb_fx[i] = reverb_effect(temp_dry_fx[i], reverb_effect_level);
+          temp_reverb_fx[i] = echo_effect(temp_dry_fx[i], reverb_effect_level);
           temp_dry_fx[i] = temp_reverb_fx[i];
         }
         else
           temp_reverb_fx[i] = 0;
-
         // Mix effects
         if(reverb_enabled == 0 && fuzz_enabled == 0 && filter_enabled == 0)
           temp_mixed_fx[i] = (temp_dry_fx[i]);

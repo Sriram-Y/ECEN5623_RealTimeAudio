@@ -36,13 +36,17 @@ typedef enum {
 } effects_mode;
 
 /* Simple echo effect */
-SAMPLE simple_reverb_effect(SAMPLE input_sample);
+SAMPLE old_echo_effect(SAMPLE input_sample);
+SAMPLE echo_effect(SAMPLE input_sample, uint8_t amount);
+
+/* Simple reverb effect */
+SAMPLE reverb_effect(SAMPLE input_sample, uint8_t reverb_level);
 
 /* Filter effect */
 SAMPLE filter_effect(SAMPLE input_sample, uint8_t cutoff_preset);
 
 /* Fuzz effect */
-SAMPLE fuzz_effect(SAMPLE input_sample);
+SAMPLE fuzz_effect(SAMPLE input_sample, uint8_t amount);
 
 void Filters_function();
 
