@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <alsa/asoundlib.h>
 #include <stdio.h>
+#include <syslog.h>
 #include "Filters.hpp"
 
 #define FILTER_LEVELS 10
@@ -13,13 +14,16 @@ const float filter_alpha[FILTER_LEVELS] = {
 };
 
 //SAMPLE reverb_buffer[ECHO_DELAY_FRAMES] = {0};
-#define MAX_ECHO_DELAY_FRAMES 48000  // 1 second max delay at 48kHz
+#define MAX_ECHO_DELAY_FRAMES 48000*4  // 1 second max delay at 48kHz
 SAMPLE echo_buffer[MAX_ECHO_DELAY_FRAMES] = {0};
 uint8_t reverb_index = 0;
 uint8_t echo_write_index = 0;
 uint8_t echo_index = 0;
-#define MAX_REVERB_DELAY_FRAMES 48000  // Max 1 second at 48kHz
+#define MAX_REVERB_DELAY_BLOCKS 10
+#define SAMPLES_PER_100MS 4800
+#define MAX_REVERB_DELAY_FRAMES 48000  // Max 4 seconds at 48kHz
 SAMPLE reverb_buffer[MAX_REVERB_DELAY_FRAMES] = {0};
+SAMPLE delayed;
 
 
 
@@ -47,6 +51,34 @@ void Filters_function()
 //    reverb_index = (reverb_index + 1) % REVERB_DELAY_FRAMES;
 //    return (SAMPLE)mixed;
 //}
+SAMPLE reverb_effect(SAMPLE input_sample, uint8_t offset)
+{
+    // Clamp offset
+    if (offset > MAX_REVERB_DELAY_BLOCKS) offset = MAX_REVERB_DELAY_BLOCKS;
+
+    // Convert offset [0?10] to delay in frames (in 100ms steps)
+    int delay_frames = offset * SAMPLES_PER_100MS;
+
+    if (delay_frames == 0) return input_sample;
+
+    int read_index = (reverb_index + MAX_REVERB_DELAY_FRAMES - delay_frames) % MAX_REVERB_DELAY_FRAMES;
+
+    SAMPLE delayed = reverb_buffer[read_index];
+
+    // Simple reverb mix: 75% dry, 25% wet
+    int32_t mixed = (input_sample * 3 + delayed) >> 2;
+
+    // Clip
+    if (mixed > MAX_INT16) mixed = MAX_INT16;
+    if (mixed < MIN_INT16) mixed = MIN_INT16;
+
+    // Store back a decayed version (simulate trailing reverberation)
+    reverb_buffer[reverb_index] = mixed >> 1;
+
+    reverb_index = (reverb_index + 1) % MAX_REVERB_DELAY_FRAMES;
+
+    return (SAMPLE)mixed;
+}
 
 /*
 SAMPLE echo_effect(SAMPLE input_sample, uint8_t amount)
@@ -89,7 +121,7 @@ SAMPLE echo_effect(SAMPLE input_sample, uint8_t amount)
 
     int echo_read_index = (echo_write_index + MAX_ECHO_DELAY_FRAMES - delay_frames) % MAX_ECHO_DELAY_FRAMES;
 
-    SAMPLE delayed = echo_buffer[echo_read_index];
+    delayed = echo_buffer[echo_read_index];
 
     // Mix 75% input, 25% echo
     int32_t mixed = (input_sample * 3 + delayed) >> 2;
@@ -178,18 +210,58 @@ SAMPLE old_echo_effect(SAMPLE input_sample)
 SAMPLE fuzz_effect(SAMPLE input_sample, uint8_t amount)
 {
     // Map [0, 255] to [0.0, 10.0]
-    float level = (amount >> 7) * 10.0f;
+    //float level = (amount >> 7) * 10.0f;
 
     //float x = input_sample / 32768.0f;
     float x = input_sample >> 15;
 
-    float gain = 0.1f + level * 5.0f;  // Gain ranges from 1 to 51
+    //float gain = 0.1f + level * 5.0f;  // Gain ranges from 1 to 51
 
-    float y = x * gain;
+    float y = x;// * gain;
 
     // Apply soft clipping
     //y = tanhf(y);
-    y = atanf(y) / atanf(gain);
+    switch (amount){
+
+      case 0: // clip
+        y = atanf(x);
+      break;
+      case 1: // softer clip
+        y = tanhf(x);
+      break;
+      case 2: // fuzz
+        y = x*x-1.0f; // fuzz
+        if(y > 1.0f) y = 1.0f;
+        if(y < -1.0f) y = -1.0f;
+      break;
+      case 3: // hard clip
+        if(input_sample > 8192) return 8192;
+        if(input_sample < -8192) return -8192;
+        return input_sample;
+      break;
+      case 4: // crush to 1 bit 
+        return input_sample & 0x8000;
+      break;
+      case 5: // crush to 2 bits 
+        return input_sample & 0xC000;
+      break;
+      case 6: // crush to 4 bits 
+        return input_sample & 0xF000;
+      break;
+      case 8: // crush to 6 bits 
+        return input_sample & 0xFC00;
+      break;
+      case 9: // crush to 10 bits 
+        return input_sample & 0xFFC0;
+      break;
+      case 10: // crush to 12 bits 
+        return input_sample & 0xFFF0;
+      break;
+      default:
+        //syslog(LOG_PERROR, "Invalid selection: %c\n", amount);
+        return input_sample;
+      break;
+    }
 
     return (SAMPLE)(y * 32767.0f);
 }

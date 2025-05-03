@@ -29,7 +29,7 @@ class Service
 {
 public:
     template <typename T>
-    Service(T &&doService, uint8_t affinity, uint8_t priority, uint32_t period) : _doService(std::forward<T>(doService)),
+    Service(T &&doService, uint8_t affinity, uint8_t priority, uint32_t period, const char* name) : serviceName(name), _doService(std::forward<T>(doService)),
                                                                                   _affinity(affinity),
                                                                                   _priority(priority),
                                                                                   _period(period),
@@ -61,6 +61,11 @@ public:
     {
         return _period;
     }
+
+protected:
+    //std::string serviceName;
+    const char* serviceName;
+    virtual const char* getName() const { return serviceName; }
 
 private:
     std::function<void(void)> _doService;
@@ -174,6 +179,7 @@ private:
         auto avgExec = _totalExecTime / _executionCount;
         std::cout << "---- Service Stats ----\n";
         std::cout << "Service ID: " << _serviceId << "\n";
+        std::cout << "Service name: " << serviceName << "\n";
         std::cout << "Executions:       " << _executionCount << "\n";
         std::cout << "Min Exec Time:    " << std::chrono::duration_cast<std::chrono::microseconds>(_minExecTime).count() << " us\n";
         std::cout << "Max Exec Time:    " << std::chrono::duration_cast<std::chrono::microseconds>(_maxExecTime).count() << " us\n";

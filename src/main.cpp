@@ -19,6 +19,7 @@
 #define PCM_OUTPUT_DEVICE "hw:2,0"
 #define SAMPLE_RATE 48000
 
+
 // Definition of a sample
 #define SAMPLE_FORMAT SND_PCM_FORMAT_S16_LE
 typedef int16_t SAMPLE;
@@ -44,9 +45,12 @@ SAMPLE effects_buffer[effects_buffer_FRAMES];
 int effects_buffer_head = 0;
 int effects_buffer_tail = 0;
 
-static uint8_t filter_effect_level = 10, filter_enabled = 0;
-static uint8_t reverb_effect_level = 10,   reverb_enabled = 0;
-static uint8_t fuzz_effect_level = 10,   fuzz_enabled = 0;
+#define MAX_FILTER_EFFECT_LEVEL 10
+#define MAX_REVERB_EFFECT_LEVEL 10
+#define MAX_FUZZ_EFFECT_LEVEL 10 
+static uint8_t filter_effect_level = MAX_FILTER_EFFECT_LEVEL, filter_enabled = 0;
+static uint8_t reverb_effect_level = MAX_REVERB_EFFECT_LEVEL, reverb_enabled = 0;
+static uint8_t fuzz_effect_level = MAX_FUZZ_EFFECT_LEVEL, fuzz_enabled = 0;
 
 //AudioCapture cap;
 const int channels = 1;
@@ -105,6 +109,7 @@ void serviceCapture(){
   snd_pcm_prepare(capture_handle);
 
   for (int i = 0; i < frames; i++) {
+    // Old test; fixed effects
     //temp_buf[i] = fuzz_effect(temp_buf[i]);
     //temp_buf[i] = simple_reverb_effect(temp_buf[i]);
     //temp_buf[i] = simple_reverb_effect(temp_buf[i]);
@@ -157,8 +162,8 @@ void serviceEffect(){
 
         if(reverb_enabled){
           //temp_reverb_fx[i] = simple_reverb_effect(temp_dry_fx[i], reverb_effect_level);
-          //temp_reverb_fx[i] = reverb_effect(temp_dry_fx[i], reverb_effect_level);
-          temp_reverb_fx[i] = echo_effect(temp_dry_fx[i], reverb_effect_level);
+          temp_reverb_fx[i] = reverb_effect(temp_dry_fx[i], reverb_effect_level);
+          //temp_reverb_fx[i] = echo_effect(temp_dry_fx[i], reverb_effect_level);
           temp_dry_fx[i] = temp_reverb_fx[i];
         }
         else
@@ -301,17 +306,17 @@ void serviceKeyboard() {
         case ']':
           syslog(LOG_INFO, "Current Mode: %d\n", current_effect);
           if(current_effect == EFFECT_FILTER){
-            if(filter_effect_level < 10)
+            if(filter_effect_level < MAX_FILTER_EFFECT_LEVEL)
               filter_effect_level++;
             syslog(LOG_INFO, "Filter effect level: %d\n", filter_effect_level);
           }
           else if(current_effect == EFFECT_FUZZ){
-            if(fuzz_effect_level < 10)
+            if(fuzz_effect_level < MAX_FUZZ_EFFECT_LEVEL)
               fuzz_effect_level++;
             syslog(LOG_INFO, "Fuzz effect level: %d\n", fuzz_effect_level);
           }
           else if(current_effect == EFFECT_REVERB){
-            if(reverb_effect_level < 10)
+            if(reverb_effect_level < MAX_REVERB_EFFECT_LEVEL)
               reverb_effect_level++;
             syslog(LOG_INFO, "Reverb effect level: %d\n", reverb_effect_level);
           }
@@ -402,12 +407,12 @@ int main(){
   
 
     syslog(LOG_INFO, "Try to Add Services");
-    sequencer.addService(serviceCapture, 1, 5, 5);
-    sequencer.addService(serviceEffect, 1, 6, 5);
-    sequencer.addService(servicePlayback, 1, 10, 5);
+    sequencer.addService(serviceCapture, 1, 5, 5, "Capture");
+    sequencer.addService(serviceEffect, 1, 6, 5, "Effect");
+    sequencer.addService(servicePlayback, 1, 10, 5, "Playback");
 
     // change in and out effects
-    sequencer.addService(serviceKeyboard, 1, 98, 100);
+    sequencer.addService(serviceKeyboard, 1, 98, 100, "Keyboard");
     
     // Register signal handler
     //sigaction(SIGINT, &sa, NULL);
