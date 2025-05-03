@@ -436,12 +436,12 @@ int main(){
   
 
     syslog(LOG_INFO, "Try to Add Services");
-    sequencer.addService(serviceCapture, 1, 5, 5, "Capture");
-    sequencer.addService(serviceEffect, 1, 6, 5, "Effect");
-    sequencer.addService(servicePlayback, 1, 10, 5, "Playback");
+    sequencer.addService(serviceCapture, 1, 7, 5, "Capture");
+    sequencer.addService(serviceEffect,  1, 8, 1, "Effect");
+    sequencer.addService(servicePlayback, 1, 5, 2, "Playback");
 
     // change in and out effects
-    sequencer.addService(serviceKeyboard, 1, 98, 100, "Keyboard");
+    sequencer.addService(serviceKeyboard, 2, 98, 100, "Keyboard");
     
     // Register signal handler
     //sigaction(SIGINT, &sa, NULL);
