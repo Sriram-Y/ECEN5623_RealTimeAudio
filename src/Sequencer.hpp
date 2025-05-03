@@ -29,7 +29,7 @@ class Service
 {
 public:
     template <typename T>
-    Service(T &&doService, uint8_t affinity, uint8_t priority, uint32_t period, const char* name) : serviceName(name), _doService(std::forward<T>(doService)),
+    Service(T &&doService, uint8_t affinity, uint8_t priority, uint32_t period, const char* name = "Unnamed") : serviceName(name), _doService(std::forward<T>(doService)),
                                                                                   _affinity(affinity),
                                                                                   _priority(priority),
                                                                                   _period(period),
@@ -172,7 +172,7 @@ private:
     {
         if (_executionCount == 0)
         {
-            std::cout << "Service had no executions.\n";
+            std::cout << "Service \""<<serviceName<<"\" had no executions.\n";
             return;
         }
 

@@ -18,6 +18,9 @@
 #define PCM_INPUT_DEVICE "hw:3,0"
 #define PCM_OUTPUT_DEVICE "hw:2,0"
 #define SAMPLE_RATE 48000
+//#define FRAMES_PER_BUFFER 512
+#define MAX_INT16 32767
+#define MIN_INT16 -32768
 
 
 // Definition of a sample
@@ -32,10 +35,10 @@ snd_pcm_hw_params_t *hw_params;
 //#define SAMPLE_FORMAT SND_PCM_FORMAT_FLOAT_LE
 //typedef float SAMPLE;
 
-/* reverb Parameters */
+/* reverb/echo Parameters */
 #define capture_buffer_FRAMES (FRAMES_PER_BUFFER * 4) // Bigger internal buffer for this windowed effect
 #define effects_buffer_FRAMES (FRAMES_PER_BUFFER * 4) // Bigger internal buffer for this windowed effect
-#define MAX_reverbES 5
+#define MAX_ECHOES 5
 
 SAMPLE capture_buffer[capture_buffer_FRAMES];
 int capture_buffer_head = 0;
@@ -48,13 +51,12 @@ int effects_buffer_tail = 0;
 #define MAX_FILTER_EFFECT_LEVEL 10
 #define MAX_REVERB_EFFECT_LEVEL 10
 #define MAX_FUZZ_EFFECT_LEVEL 10 
-static uint8_t filter_effect_level = MAX_FILTER_EFFECT_LEVEL, filter_enabled = 0;
+static uint8_t filter_effect_level = MAX_FILTER_EFFECT_LEVEL, filter_enabled = 1;
 static uint8_t reverb_effect_level = MAX_REVERB_EFFECT_LEVEL, reverb_enabled = 0;
 static uint8_t fuzz_effect_level = MAX_FUZZ_EFFECT_LEVEL, fuzz_enabled = 0;
 
 //AudioCapture cap;
-const int channels = 1;
-const int seconds = 5;
+//const int channels = 1;
 //AudioData cap_data ;
 //AudioData cap_data2 ;
 //extern Sequencer sequencer;
@@ -144,7 +146,7 @@ void serviceEffect(){
         temp_dry_fx[i] = capture_buffer[capture_buffer_tail];
         capture_buffer_tail = (capture_buffer_tail + 1) % capture_buffer_FRAMES;
 
-        // Apply effects
+        // Apply effects sequentially
 
         if(fuzz_enabled){
           temp_fuzz_fx[i] = fuzz_effect(temp_dry_fx[i], fuzz_effect_level);
@@ -168,7 +170,9 @@ void serviceEffect(){
         }
         else
           temp_reverb_fx[i] = 0;
-        // Mix effects
+
+        // Mix effects -- right now just make sure singleton effects are
+        // honored
         if(reverb_enabled == 0 && fuzz_enabled == 0 && filter_enabled == 0)
           temp_mixed_fx[i] = (temp_dry_fx[i]);
         else if(reverb_enabled == 1 && fuzz_enabled == 0 && filter_enabled == 0)
@@ -224,11 +228,32 @@ void servicePlayback(){
     }
   }
 }
+
+#include <unistd.h>
+#include <sys/select.h>
+#include <termios.h>
+#include <fcntl.h>
+#include <stdio.h>
+
+void set_raw_mode(termios& orig) {
+    struct termios raw;
+    tcgetattr(STDIN_FILENO, &orig);
+    raw = orig;
+    raw.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+}
+
+void restore_terminal(const termios& orig) {
+    tcsetattr(STDIN_FILENO, TCSANOW, &orig);
+}
+
+
 void serviceKeyboard() {
   if(run_once > 0 && keyboard_running){
     set_raw_mode();
 
     char ch;
+    // can this be improved?
     while (keyboard_running && read(STDIN_FILENO, &ch, 1) > 0) {
       switch (ch) {
 
@@ -383,6 +408,10 @@ int main(){
     Sequencer sequencer{};
     //SAMPLE buffer[FRAMES_PER_BUFFER];
     int err;
+
+    //int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+    //fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+
 
     /* start up syslog */
     openlog("audio_effects", LOG_PERROR | LOG_PID | LOG_NDELAY, LOG_USER);
