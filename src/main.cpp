@@ -365,7 +365,7 @@ int audio_setup(snd_pcm_t **capture_handle, snd_pcm_t **playback_handle, snd_pcm
     int err;
 
     // Open capture device
-    if ((err = snd_pcm_open(capture_handle, PCM_INPUT_DEVICE, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
+    if ((err = snd_pcm_open(capture_handle, PCM_INPUT_DEVICE, SND_PCM_STREAM_CAPTURE, SND_PCM_NONBLOCK)) < 0) {
         //fprintf(stderr, "cannot open audio capture device (%s)\n", snd_strerror(err));
         syslog(LOG_PERROR, "cannot open audio capture device (%s)\n", snd_strerror(err));
         return 1;

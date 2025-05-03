@@ -18,7 +18,6 @@
 //#define SAMPLE_FORMAT SND_PCM_FORMAT_FLOAT_LE
 //typedef float SAMPLE;
 #define SAMPLE_FORMAT SND_PCM_FORMAT_S16_LE
-typedef int16_t SAMPLE;
 
 // for echo
 #define MAX_POLL_FDS 4
