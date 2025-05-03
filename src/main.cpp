@@ -60,6 +60,8 @@ static uint8_t fuzz_effect_level = MAX_FUZZ_EFFECT_LEVEL, fuzz_enabled = 0;
 //AudioData cap_data ;
 //AudioData cap_data2 ;
 //extern Sequencer sequencer;
+// Setup should be done ahead of time... have service code run in init
+// init warmup for initial capture
 atomic_int run_once = 0;
 atomic_int keyboard_running = 1;
 
@@ -98,9 +100,14 @@ void set_raw_mode() {
 }
 
 /* Services */
+// Prof Feedback
+// TODO get SAMPLE temp_buff off of the stack
+// Each service has its own class member access 
+// Class to enacpsulate start/stop/capture
 void serviceCapture(){
   SAMPLE temp_buf[FRAMES_PER_BUFFER];
 
+  //uint8_t
   int frames = snd_pcm_readi(capture_handle, temp_buf, FRAMES_PER_BUFFER);
   if (frames == -EPIPE) {
     syslog(LOG_PERROR, "Overrun occurred during capture\n");
@@ -110,6 +117,9 @@ void serviceCapture(){
   }
   snd_pcm_prepare(capture_handle);
 
+  // std::array instead of raw array
+  // std:: span ranged array of raw array for iteration
+  // foreach
   for (int i = 0; i < frames; i++) {
     // Old test; fixed effects
     //temp_buf[i] = fuzz_effect(temp_buf[i]);
@@ -132,7 +142,7 @@ void serviceCapture(){
 }
 
 void serviceEffect(){
-  if(run_once > 0){
+  if(run_once > 0){ // TODO could be reverset
     int frames_available = (capture_buffer_head - capture_buffer_tail + capture_buffer_FRAMES) % capture_buffer_FRAMES;
 
     if (frames_available >= FRAMES_PER_BUFFER) {
@@ -142,8 +152,10 @@ void serviceEffect(){
       SAMPLE temp_fuzz_fx[FRAMES_PER_BUFFER];
       SAMPLE temp_mixed_fx[FRAMES_PER_BUFFER];
 
+      // TODO hoist out of 
+      temp_dry_fx = capture_buffer;
       for (int i = 0; i < FRAMES_PER_BUFFER; i++) {
-        temp_dry_fx[i] = capture_buffer[capture_buffer_tail];
+        //temp_dry_fx[i] = capture_buffer[capture_buffer_tail];
         capture_buffer_tail = (capture_buffer_tail + 1) % capture_buffer_FRAMES;
 
         // Apply effects sequentially
@@ -361,6 +373,7 @@ void serviceKeyboard() {
   }
 }
 
+// TODO add one round of capture and remove run_once
 int audio_setup(snd_pcm_t **capture_handle, snd_pcm_t **playback_handle, snd_pcm_hw_params_t **hw_params) {
     int err;
 
