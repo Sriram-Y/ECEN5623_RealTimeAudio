@@ -41,12 +41,12 @@ snd_pcm_hw_params_t *hw_params;
 #define MAX_ECHOES 5
 
 SAMPLE capture_buffer[capture_buffer_FRAMES];
-int capture_buffer_head = 0;
-int capture_buffer_tail = 0;
+uint16_t capture_buffer_head = 0;
+uint16_t capture_buffer_tail = 0;
 
 SAMPLE effects_buffer[effects_buffer_FRAMES];
-int effects_buffer_head = 0;
-int effects_buffer_tail = 0;
+uint16_t effects_buffer_head = 0;
+uint16_t effects_buffer_tail = 0;
 
 #define MAX_FILTER_EFFECT_LEVEL 10
 #define MAX_REVERB_EFFECT_LEVEL 10
@@ -146,62 +146,36 @@ void serviceEffect(){
     int frames_available = (capture_buffer_head - capture_buffer_tail + capture_buffer_FRAMES) % capture_buffer_FRAMES;
 
     if (frames_available >= FRAMES_PER_BUFFER) {
-      SAMPLE temp_dry_fx[FRAMES_PER_BUFFER] = {0};
-      SAMPLE temp_filter_fx[FRAMES_PER_BUFFER];
-      SAMPLE temp_reverb_fx[FRAMES_PER_BUFFER];
-      SAMPLE temp_fuzz_fx[FRAMES_PER_BUFFER];
+      //SAMPLE temp_dry_fx[FRAMES_PER_BUFFER] = {0};
+      //SAMPLE temp_filter_fx[FRAMES_PER_BUFFER];
+      //SAMPLE temp_reverb_fx[FRAMES_PER_BUFFER];
+      //SAMPLE temp_fuzz_fx[FRAMES_PER_BUFFER];
       SAMPLE temp_mixed_fx[FRAMES_PER_BUFFER];
 
       // TODO hoist out of 
-      temp_dry_fx = capture_buffer;
+      //temp_dry_fx = capture_buffer;
+      //memcpy(&temp_dry_fx, &capture_buffer, sizeof(SAMPLE));
       for (int i = 0; i < FRAMES_PER_BUFFER; i++) {
-        //temp_dry_fx[i] = capture_buffer[capture_buffer_tail];
+        temp_mixed_fx[i] = capture_buffer[capture_buffer_tail];
         capture_buffer_tail = (capture_buffer_tail + 1) % capture_buffer_FRAMES;
 
         // Apply effects sequentially
 
         if(fuzz_enabled){
-          temp_fuzz_fx[i] = fuzz_effect(temp_dry_fx[i], fuzz_effect_level);
-          temp_dry_fx[i] = temp_fuzz_fx[i];
+          temp_mixed_fx[i] = fuzz_effect(temp_mixed_fx[i], fuzz_effect_level);
         }
-        else
-          temp_fuzz_fx[i] = 0;
 
         if(filter_enabled){
-          temp_filter_fx[i] = filter_effect(temp_dry_fx[i], filter_effect_level );
-          temp_dry_fx[i] = temp_filter_fx[i];
+          //temp_filter_fx[i] = 
+          temp_mixed_fx[i] = filter_effect(temp_mixed_fx[i], filter_effect_level );
         }
-        else
-          temp_filter_fx[i] = 0;
 
         if(reverb_enabled){
           //temp_reverb_fx[i] = simple_reverb_effect(temp_dry_fx[i], reverb_effect_level);
-          temp_reverb_fx[i] = reverb_effect(temp_dry_fx[i], reverb_effect_level);
           //temp_reverb_fx[i] = echo_effect(temp_dry_fx[i], reverb_effect_level);
-          temp_dry_fx[i] = temp_reverb_fx[i];
+          //temp_dry_fx[i] = temp_reverb_fx[i];
+          temp_mixed_fx[i] = reverb_effect(temp_mixed_fx[i], reverb_effect_level);
         }
-        else
-          temp_reverb_fx[i] = 0;
-
-        // Mix effects -- right now just make sure singleton effects are
-        // honored
-        if(reverb_enabled == 0 && fuzz_enabled == 0 && filter_enabled == 0)
-          temp_mixed_fx[i] = (temp_dry_fx[i]);
-        else if(reverb_enabled == 1 && fuzz_enabled == 0 && filter_enabled == 0)
-          temp_mixed_fx[i] = temp_reverb_fx[i];
-        else if(reverb_enabled == 0 && fuzz_enabled == 0 && filter_enabled == 1)
-          temp_mixed_fx[i] = temp_filter_fx[i];
-        else if(reverb_enabled == 0 && fuzz_enabled == 1 && filter_enabled == 0)
-          temp_mixed_fx[i] = temp_fuzz_fx[i];
-        else
-          temp_mixed_fx[i] = (temp_dry_fx[i]);
-        
-        /*else{
-          temp_mixed_fx[i] += temp_fuzz_fx[i] >> 2;
-          temp_mixed_fx[i] += temp_filter_fx[i] >> 2;
-          temp_mixed_fx[i] += temp_reverb_fx[i] >> 2;
-          */
-        //}
 
         // Add to Effects bufer
         effects_buffer[effects_buffer_head] = temp_mixed_fx[i];
@@ -374,7 +348,8 @@ void serviceKeyboard() {
 }
 
 // TODO add one round of capture and remove run_once
-int audio_setup(snd_pcm_t **capture_handle, snd_pcm_t **playback_handle, snd_pcm_hw_params_t **hw_params) {
+int audio_setup(snd_pcm_t **capture_handle, snd_pcm_t **playback_handle, snd_pcm_hw_params_t **hw_params) 
+{
     int err;
 
     // Open capture device
@@ -413,11 +388,15 @@ int audio_setup(snd_pcm_t **capture_handle, snd_pcm_t **playback_handle, snd_pcm
     snd_pcm_hw_params_free(*hw_params);
     snd_pcm_prepare(*playback_handle);
 
+    // warm up with a single capture
+    serviceCapture();
+
     return 0;
 }
 
 
-int main(){
+int main()
+{
     Sequencer sequencer{};
     //SAMPLE buffer[FRAMES_PER_BUFFER];
     int err;
@@ -449,12 +428,12 @@ int main(){
   
 
     syslog(LOG_INFO, "Try to Add Services");
-    sequencer.addService(serviceCapture, 1, 7, 5, "Capture");
-    sequencer.addService(serviceEffect,  1, 8, 1, "Effect");
-    sequencer.addService(servicePlayback, 1, 5, 2, "Playback");
+    sequencer.addService(serviceCapture, 2, 98, 5, "Capture");
+    sequencer.addService(serviceEffect,  2, 97, 1, "Effect");
+    sequencer.addService(servicePlayback, 2, 96, 2, "Playback");
 
     // change in and out effects
-    sequencer.addService(serviceKeyboard, 2, 98, 100, "Keyboard");
+    sequencer.addService(serviceKeyboard, 3, 10, 100, "Keyboard");
     
     // Register signal handler
     //sigaction(SIGINT, &sa, NULL);
