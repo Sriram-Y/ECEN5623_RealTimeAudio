@@ -7,7 +7,7 @@
 #include <math.h>
 
 #define PCM_INPUT_DEVICE "hw:3,0"
-#define PCM_OUTPUT_DEVICE "hw:2,0"
+#define PCM_OUTPUT_DEVICE "hw:0,0"
 //#define SAMPLE_RATE 44100
 #define MAX_INT16 32767
 #define MIN_INT16 -32768
